@@ -28,10 +28,9 @@ void testRGB(void * params)
     sw1.setAsInput();
     sw2.setAsInput();
     sw3.setAsInput();
-    sjone.splashscreen();
     while(1)
     {
-
+        sjone.splashscreen();
         if(sw0.getLevel() || sw1.getLevel() || sw2.getLevel() || sw3.getLevel())
         {
             sjone.drawPixelwithAudio(audio, sw0, sw1, sw2, sw3);
@@ -64,8 +63,8 @@ int main(void)
 
     xMutex = xSemaphoreCreateMutex();
 
-    xTaskCreate(playAudio, "playAudio", STACK_SIZE, NULL, PRIORITY_HIGH, NULL);
-//    xTaskCreate(testRGB, "testRGB", STACK_SIZE, NULL, PRIORITY_HIGH, NULL);
+//    xTaskCreate(playAudio, "playAudio", STACK_SIZE, NULL, PRIORITY_HIGH, NULL);
+    xTaskCreate(testRGB, "testRGB", STACK_SIZE, NULL, PRIORITY_HIGH, NULL);
 
     vTaskStartScheduler();
 
