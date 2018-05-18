@@ -64,8 +64,8 @@ int main(void)
 
     xMutex = xSemaphoreCreateMutex();
 
-//    xTaskCreate(playAudio, "playAudio", STACK_SIZE, NULL, PRIORITY_HIGH, NULL);
-    xTaskCreate(testRGB, "testRGB", STACK_SIZE, NULL, PRIORITY_HIGH, NULL);
+    xTaskCreate(playAudio, "playAudio", STACK_SIZE, NULL, PRIORITY_HIGH, NULL);
+//    xTaskCreate(testRGB, "testRGB", STACK_SIZE, NULL, PRIORITY_HIGH, NULL);
 
     vTaskStartScheduler();
 

@@ -10,7 +10,6 @@
 #include "eint.h"
 #include "semphr.h"
 
-void vControlLED(void * pvParameters);
 void vReadSwitch(void * pvParameters);
 
 class LabGPIO

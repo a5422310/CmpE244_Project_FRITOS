@@ -1,60 +1,7 @@
 #include "LabGPIO.hpp"
-#include "LabGPIOInterrupts.hpp"
 
 volatile bool switchReleased = false;
-//SemaphoreHandle_t button_press_semaphore = NULL;
 
-void vControlLED(void * pvParameters)
-{
-    /* Get Parameter */
-    uint32_t param = (uint32_t)(pvParameters);
-    /* Define Constants Here */
-
-    /* Define Local Variables and Objects */
-    LabGPIO internalLED(1,8);
-    LabGPIO externalLED(0,1);
-
-    /* Initialization Code */
-    internalLED.setAsOutput();
-    internalLED.setHigh();
-    externalLED.setAsOutput();
-    externalLED.setHigh();
-
-#if 1
-    while(1)
-    {
-        if (xSemaphoreTake(button_press_semaphore, portMAX_DELAY))
-        {
-            if(param) {
-                externalLED.toggleLevel();
-                printf("external LED toggled\n");
-            } else {
-                internalLED.toggleLevel();
-                printf("internal LED toggled\n");
-            }
-        }
-    }
-#else
-    while(1)
-    {
-        if(switchReleased)
-        {
-            if(param)
-            {
-                externalLED.toggleLevel();
-                switchReleased = false;
-                printf("external LED toggled\n");
-            } else {
-                internalLED.toggleLevel();
-                switchReleased = false;
-                printf("internal LED toggled\n");
-            }
-        }
-    }
-#endif
-    /* Only necessary if above loop has a condition */
-    vTaskDelete(NULL);
-}
 
 void vReadSwitch(void * pvParameters)
 {
