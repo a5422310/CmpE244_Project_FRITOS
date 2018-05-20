@@ -80,7 +80,7 @@ public:
 
     bool convert_i = 0;
     bool convert_j = 0;
-
+    int spin = 0;
     FRITOS(bool);
     ~FRITOS();
 
@@ -113,6 +113,7 @@ public:
     void DisplayColorMode(uint8_t);
     void splashscreen(void);
     void pausescreen(LabGPIO sw2, LabGPIO out2);
+    void skipscreen(void);
     void enableOE(void);
     void disableOE(void);
     void clockTick(void);

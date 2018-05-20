@@ -70,8 +70,11 @@ void playAudio(void * params)
         if(in1.getLevel() || in2.getLevel() || in3.getLevel())
         {
             sjone.playMP3("odesza_a_moment_apart.mp3", in1, in2);
+            while(!in1.getLevel()){}
             sjone.playMP3("odesza_falls.mp3", in1, in2);
+            while(!in1.getLevel()){}
             sjone.playMP3("odesza_higher_ground.mp3", in1, in2);
+            while(!in1.getLevel()){}
             sjone.playMP3("odesza_late_night.mp3", in1, in2);
         }
     }

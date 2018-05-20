@@ -498,6 +498,67 @@ void FRITOS::pausescreen(LabGPIO sw2, LabGPIO out2)
     }
 }
 
+void FRITOS::skipscreen(void)
+{
+    char skip[16][32] =
+    {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 0, 0, 7, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 0, 7, 7, 0, 0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 7, 7, 7, 0, 0, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 7, 7, 7, 7, 0, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 7, 7, 7, 7, 0, 7, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 7, 7, 7, 0, 0, 7, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 0, 7, 7, 0, 0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7, 0, 0, 0, 0, 7, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+};
+    for(uint8_t row = 0; row < 8; ++row)
+    {
+        disableOE();
+        set_color_top(0);
+        set_color_bottom(0);
+        set_row(row);
+        for(uint8_t col = 0; col < 32; ++col)
+        {
+            if(convert_i)
+            {
+                set_color_bottom(skip[row+8-convert_i*(2*row+1)][col+convert_j*(31-2*col)]);
+                set_color_top(skip[row+convert_i*(15-2*row)][col+convert_j*(31-2*col)]);
+                if(row==1 && col==8+spin && col <24)   set_color_top(7);
+                else if(col==23 && spin > 15 && spin-row==15)   set_color_top(7);
+                else if(col==23 && spin > 15 && spin-row==22 && row < 7)   set_color_bottom(7);
+                else if(row==6 && col+convert_j*(31-2*col)==spin-19 && col < 24 && col > 7)   set_color_bottom(7);
+                else if(col==8 && spin > 42 && spin-(row+8-convert_i*(2*row+1))==41)  set_color_bottom(7);
+                else if(col==8 && spin > 42 && spin-(row+8-convert_i*(2*row+1))==48 && row > 0)  set_color_top(7);
+            }
+            else
+            {
+                set_color_top(skip[row+8-convert_i*(2*row+1)][col+convert_j*(31-2*col)]);
+                set_color_bottom(skip[row+convert_i*(15-2*row)][col+convert_j*(31-2*col)]);
+                if(row==6 && col+(31-2*col)==8+spin && col+(31-2*col) <24)   set_color_top(7);
+                else if(col==8 && spin > 15 && spin-(row+8-(2*row+1))==15)   set_color_top(7);
+                else if(col==8 && spin > 15 && spin-(row+8-(2*row+1))==22 && (row+8-(2*row+1)) < 7)   set_color_bottom(7);
+                else if(row==1 && col==spin-19 && col > 8 && col < 24)   set_color_bottom(7);
+                else if(col==23 && spin > 42 && spin-row==41)  set_color_bottom(7);
+                else if(col==23 && spin > 42 && spin-row==48 && row < 6)  set_color_top(7);
+            }
+            clockTick();
+        }
+        latchReset();
+        enableOE();
+        vTaskDelay(1);
+    }
+    spin++;
+    if(spin > 56)   spin = 0 ;
+}
+
 void FRITOS::enableOE(void)
 {
     LPC_GPIO0->FIOCLR = (1 << OE);
@@ -636,15 +697,14 @@ void FRITOS::drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, L
         }
         while(sw1.getLevel())   //switch 1 on LPC1758, skip song
         {
-            vTaskDelay(50);
+            skipscreen();
             if(!sw1.getLevel())
             {
                 out1.setLow();
-                vTaskDelay(20);
+                vTaskDelay(50);
                 out1.setHigh();
             }
         }
-
         while(sw0.getLevel())   //switch 0 on LPC1758, display splash screen
         {
             splashscreen();
