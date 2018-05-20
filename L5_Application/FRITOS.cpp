@@ -903,13 +903,13 @@ void FRITOS::drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, L
                 if(rowset == top[colset] && top[colset] >= 0)
                 {
                     set_color_bottom(dropping);
-                    if(count%5 == 0) top[colset]--;
+                    if(count%10 == 0) top[colset]--;
                     if(convert_i)   count++;
                 }
                 else if(rowset == top[colset]-8 && top[colset] > 0)
                 {
                     set_color_top(dropping);
-                    if(count%5 == 0) top[colset]--;
+                    if(count%10 == 0) top[colset]--;
                     if(convert_i)   count++;
                 }
                 if(convert_i)
@@ -927,7 +927,7 @@ void FRITOS::drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, L
             }
             latchReset();
             enableOE();
-            vTaskDelay(2);
+            vTaskDelay(1);
         }
         if(!convert_i)   count++;
     }
