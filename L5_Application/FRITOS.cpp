@@ -73,7 +73,6 @@ void FRITOS::setupMP3()
     setVolume(10, 10);
     vTaskDelay(10);
 //    setBass(20, 20);
-//    vTaskDelay(10);
 
     writeRegister(SCI_CLOCKF, 0x80, 0x00);  // Set clock multiplier to 3.5 * 12.288 MHz = 43 MHz
                                             // Max SCI reads are CLKI/7. Input clock is 43 MHz. Max SPI speed is 6.14 MHz
@@ -142,7 +141,7 @@ int FRITOS::readRegister(uint8_t addressbyte)
     return resultvalue;
 }
 
-void FRITOS::playMP3(const char* trackName)
+void FRITOS::playMP3(const char* trackName, LabGPIO in1, LabGPIO in2)
 {
     unsigned int bytesRead = 0;
     char filePath[128] = {0};
@@ -157,7 +156,7 @@ void FRITOS::playMP3(const char* trackName)
     }
     if(m_debug) printf("PLAYING: %s\n", trackName);
 
-    while(1)
+    while(in1.getLevel())
     {
         while(!mp3Ready())
         {
@@ -182,6 +181,10 @@ void FRITOS::playMP3(const char* trackName)
                 break;
             }
             need_data = false;
+        }
+
+        while(in2.getLevel())
+        {
         }
 
         if(xSemaphoreTake(xMutex, portMAX_DELAY))
@@ -216,7 +219,7 @@ void FRITOS::setBass(uint8_t left, uint8_t right)
     writeRegister(SCI_BASS, left, right);
 }
 
-void FRITOS::startPlaylist(const char* playlistName)
+void FRITOS::startPlaylist(const char* playlistName, LabGPIO in1, LabGPIO in2)
 {
     unsigned int bytesRead = 0;
     char playlistDataBuffer[512] = {0};
@@ -244,7 +247,7 @@ void FRITOS::startPlaylist(const char* playlistName)
         if(playlistDataBuffer[i] == '\n')
         {
             trackName[j] = '\0';
-            playMP3(trackName);
+            playMP3(trackName, in1, in2);
             memset(trackName, 0, sizeof(trackName)*sizeof(trackName[0]));
             j = 0;
             vTaskDelay(1000);
@@ -262,10 +265,6 @@ void FRITOS::startPlaylist(const char* playlistName)
 void FRITOS::initRGB(void)
 {
     if(m_debug) printf("Initializing SJOne...\n");
-
-//    LPC_SC->PCONP |= (1 << 21);         // SPI0 Power Enable
-//    LPC_SC->PCLKSEL0 &= ~(3 << 10);     // Reset PCLK_SPI0 = PCLK_peripheral = CCLK/4 = 24 MHz
-//    LPC_SC->PCLKSEL0 |=  (1 << 10);     // Set PCLK_SPI0 = PCLK_peripheral = CCLK/3 = 12 MHz
 
     // Select GPIO Port 0.0, 0.1 pin-select functionality
     LPC_PINCON->PINSEL0 &= ~(0x4);
@@ -314,7 +313,7 @@ void FRITOS::initRGB(void)
 
     if(m_debug) printf("SJOne initialized!\n");
 
-    vTaskDelay(1000);
+    vTaskDelay(100);
 }
 
 void FRITOS::DisplayColorMode(uint8_t mode)
@@ -325,17 +324,29 @@ void FRITOS::DisplayColorMode(uint8_t mode)
     {
         for(uint8_t j = 0; j < m_matrixWidth; ++j)
         {
-            //set which row displays which color         (0bBGR)
+            //set which row displays which color                     (0bBGR)
             switch(mode)
             {
                 case 0:
-                    if(i<1)                 m_matrixBuffer[i][j] = 2;   //0     =   7       G
-                    else if(i<4)            m_matrixBuffer[i][j] = 3;   //1-3   =   4-6     Y
-                    else if(i<8)            m_matrixBuffer[i][j] = 1;   //5-7   =   0-3     R
-                    else if(i<10)           m_matrixBuffer[i][j] = 5;   //8,9   =   14,15   P
-                    else if(i<12)           m_matrixBuffer[i][j] = 4;   //10,11 =   12,13   B
-                    else if(i<14)           m_matrixBuffer[i][j] = 6;   //12-13 =   10-11   L
-                    else                    m_matrixBuffer[i][j] = 2;   //14,15 =   8,9     G
+                    if(!convert_i)
+                    {
+                        if(i<2)                 m_matrixBuffer[i][j] = 5;   //P
+                        else if(i<4)            m_matrixBuffer[i][j] = 4;   //B
+                        else if(i<6)            m_matrixBuffer[i][j] = 6;   //L
+                        else if(i<9)            m_matrixBuffer[i][j] = 2;   //G
+                        else if(i<12)           m_matrixBuffer[i][j] = 3;   //Y
+                        else                    m_matrixBuffer[i][j] = 1;   //R
+                    }
+                    else
+                    {
+                        if(i<1)                 m_matrixBuffer[i][j] = 2;   //0     =   7       G
+                        else if(i<4)            m_matrixBuffer[i][j] = 3;   //1-3   =   4-6     Y
+                        else if(i<8)            m_matrixBuffer[i][j] = 1;   //5-7   =   0-3     R
+                        else if(i<10)           m_matrixBuffer[i][j] = 5;   //8,9   =   14,15   P
+                        else if(i<12)           m_matrixBuffer[i][j] = 4;   //10,11 =   12,13   B
+                        else if(i<14)           m_matrixBuffer[i][j] = 6;   //12-13 =   10-11   L
+                        else                    m_matrixBuffer[i][j] = 2;   //14,15 =   8,9     G
+                    }
                     break;
                 case 1:
                     if(j<5)                 m_matrixBuffer[i][j] = 7;   //W
@@ -347,10 +358,19 @@ void FRITOS::DisplayColorMode(uint8_t mode)
                     else                    m_matrixBuffer[i][j] = 1;   //R
                     break;
                 case 2:
-                    if(i<2)                 m_matrixBuffer[i][j] = 3;   //Y
-                    else if(i<8)            m_matrixBuffer[i][j] = 1;   //R
-                    else if(i<13)           m_matrixBuffer[i][j] = 2;   //G
-                    else                    m_matrixBuffer[i][j] = 3;   //Y
+                    if(!convert_i)
+                    {
+                        if(i<5)                 m_matrixBuffer[i][j] = 2;   //G
+                        else if(i<10)           m_matrixBuffer[i][j] = 3;   //Y
+                        else                    m_matrixBuffer[i][j] = 1;   //1
+                    }
+                    else
+                    {
+                        if(i<2)                 m_matrixBuffer[i][j] = 3;   //Y
+                        else if(i<8)            m_matrixBuffer[i][j] = 1;   //R
+                        else if(i<13)           m_matrixBuffer[i][j] = 2;   //G
+                        else                    m_matrixBuffer[i][j] = 3;   //Y
+                    }
                     break;
                 default:
                     break;
@@ -402,8 +422,17 @@ void FRITOS::splashscreen(void)
         set_row(row);
         for(uint8_t col = 0; col < 32; ++col)
         {
-            set_color_top(splash[row+8][col]);
-            set_color_bottom(splash[row][col]);
+            if(convert_i)
+            {
+                set_color_bottom(splash[row+8-convert_i*(2*row+1)][col+convert_j*(31-2*col)]);
+                set_color_top(splash[row+convert_i*(15-2*row)][col+convert_j*(31-2*col)]);
+            }
+            else
+            {
+                set_color_top(splash[row+8-convert_i*(2*row+1)][col+convert_j*(31-2*col)]);
+                set_color_bottom(splash[row+convert_i*(15-2*row)][col+convert_j*(31-2*col)]);
+            }
+
             clockTick();
         }
         latchReset();
@@ -411,7 +440,63 @@ void FRITOS::splashscreen(void)
         vTaskDelay(1);
     }
 }
-//https://github.com/2dom/PxMatrix/blob/master/PxMatrix.cpp
+
+void FRITOS::pausescreen(LabGPIO sw2, LabGPIO out2)
+{
+    char pause[16][32] =
+    {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
+    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 7, 7, 7, 7, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
+    {0, 1, 7, 7, 7, 7, 1, 1, 7, 7, 7, 1, 1, 7, 1, 1, 1, 1, 7, 1, 1, 7, 1, 1, 7, 1, 1, 1, 1, 7, 1, 0},
+    {0, 1, 1, 1, 1, 7, 1, 7, 1, 1, 1, 1, 7, 1, 7, 1, 1, 7, 1, 7, 1, 7, 1, 1, 7, 1, 1, 1, 1, 7, 1, 0},
+    {0, 1, 7, 7, 7, 7, 1, 1, 7, 7, 1, 1, 7, 1, 7, 1, 1, 7, 1, 7, 1, 7, 7, 7, 7, 1, 1, 7, 7, 7, 1, 0},
+    {0, 1, 1, 1, 1, 7, 1, 1, 1, 1, 7, 1, 7, 1, 7, 1, 1, 7, 1, 7, 1, 7, 1, 1, 7, 1, 7, 1, 1, 7, 1, 0},
+    {0, 1, 7, 7, 7, 7, 1, 7, 7, 7, 1, 1, 1, 7, 1, 1, 1, 1, 7, 1, 1, 1, 7, 7, 1, 1, 1, 7, 7, 7, 1, 0},
+    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 7, 7, 7, 7, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
+    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+};
+    for(uint8_t row = 0; row < 8; ++row)
+    {
+        disableOE();
+        set_color_top(0);
+        set_color_bottom(0);
+        set_row(row);
+        for(uint8_t col = 0; col < 32; ++col)
+        {
+            if(convert_i)
+            {
+                set_color_bottom(pause[row+8-convert_i*(2*row+1)][col+convert_j*(31-2*col)]);
+                set_color_top(pause[row+convert_i*(15-2*row)][col+convert_j*(31-2*col)]);
+            }
+            else
+            {
+                set_color_top(pause[row+8-convert_i*(2*row+1)][col+convert_j*(31-2*col)]);
+                set_color_bottom(pause[row+convert_i*(15-2*row)][col+convert_j*(31-2*col)]);
+            }
+
+            clockTick();
+        }
+        latchReset();
+        enableOE();
+        vTaskDelay(1);
+    }
+
+    while(sw2.getLevel())   //switch 2 on LPC1758, can resume after pause
+    {
+        vTaskDelay(50);
+        if(!sw2.getLevel())
+        {
+            out2.toggleLevel();
+        }
+    }
+}
 
 void FRITOS::enableOE(void)
 {
@@ -447,100 +532,74 @@ void FRITOS::set_row(uint8_t row)
 
 void FRITOS::set_color_bottom(uint32_t color)
 {
-    uint8_t r1_bit = color & 1;
-    uint8_t g1_bit = (color >> 1) & 1;
-    uint8_t b1_bit = (color >> 2) & 1;
-    r1_bit ? LPC_GPIO2->FIOSET = (1 << R1) : LPC_GPIO2->FIOCLR = (1 << R1);
-    g1_bit ? LPC_GPIO2->FIOSET = (1 << G1) : LPC_GPIO2->FIOCLR = (1 << G1);
-    b1_bit ? LPC_GPIO2->FIOSET = (1 << B1) : LPC_GPIO2->FIOCLR = (1 << B1);
+    if(convert_i)
+    {
+        uint8_t r2_bit = color & 1;
+        uint8_t g2_bit = (color >> 1) & 1;
+        uint8_t b2_bit = (color >> 2) & 1;
+        r2_bit ? LPC_GPIO2->FIOSET = (1 << R2) : LPC_GPIO2->FIOCLR = (1 << R2);
+        g2_bit ? LPC_GPIO2->FIOSET = (1 << G2) : LPC_GPIO2->FIOCLR = (1 << G2);
+        b2_bit ? LPC_GPIO2->FIOSET = (1 << B2) : LPC_GPIO2->FIOCLR = (1 << B2);
+    }
+    else
+    {
+        uint8_t r1_bit = color & 1;
+        uint8_t g1_bit = (color >> 1) & 1;
+        uint8_t b1_bit = (color >> 2) & 1;
+        r1_bit ? LPC_GPIO2->FIOSET = (1 << R1) : LPC_GPIO2->FIOCLR = (1 << R1);
+        g1_bit ? LPC_GPIO2->FIOSET = (1 << G1) : LPC_GPIO2->FIOCLR = (1 << G1);
+        b1_bit ? LPC_GPIO2->FIOSET = (1 << B1) : LPC_GPIO2->FIOCLR = (1 << B1);
+    }
+
 }
 
 void FRITOS::set_color_top(uint32_t color)
 {
-    uint8_t r2_bit = color & 1;
-    uint8_t g2_bit = (color >> 1) & 1;
-    uint8_t b2_bit = (color >> 2) & 1;
-    r2_bit ? LPC_GPIO2->FIOSET = (1 << R2) : LPC_GPIO2->FIOCLR = (1 << R2);
-    g2_bit ? LPC_GPIO2->FIOSET = (1 << G2) : LPC_GPIO2->FIOCLR = (1 << G2);
-    b2_bit ? LPC_GPIO2->FIOSET = (1 << B2) : LPC_GPIO2->FIOCLR = (1 << B2);
-}
-
-void FRITOS::set_color_all(uint32_t color)
-{
-    uint8_t r1_byte = (color >> 16) & 0xFF;
-    uint8_t g1_byte = (color >> 8) & 0xFF;
-    uint8_t b1_byte = color & 0xFF;
-    uint8_t r1_bit = 0;
-    uint8_t g1_bit = 0;
-    uint8_t b1_bit = 0;
-
-    uint8_t r2_byte = (color >> 16) & 0xFF;
-    uint8_t g2_byte = (color >> 8) & 0xFF;
-    uint8_t b2_byte = color & 0xFF;
-    uint8_t r2_bit = 0;
-    uint8_t g2_bit = 0;
-    uint8_t b2_bit = 0;
-
-    for (uint8_t i = 0; i < 8; ++i)
+    if(convert_i)
     {
-        r1_bit = (r1_byte >> i) & 0x01;
-        g1_bit = (g1_byte >> i) & 0x01;
-        b1_bit = (b1_byte >> i) & 0x01;
+        uint8_t r1_bit = color & 1;
+        uint8_t g1_bit = (color >> 1) & 1;
+        uint8_t b1_bit = (color >> 2) & 1;
         r1_bit ? LPC_GPIO2->FIOSET = (1 << R1) : LPC_GPIO2->FIOCLR = (1 << R1);
         g1_bit ? LPC_GPIO2->FIOSET = (1 << G1) : LPC_GPIO2->FIOCLR = (1 << G1);
         b1_bit ? LPC_GPIO2->FIOSET = (1 << B1) : LPC_GPIO2->FIOCLR = (1 << B1);
-
-        r2_bit = (r2_byte >> i) & 0x01;
-        g2_bit = (g2_byte >> i) & 0x01;
-        b2_bit = (b2_byte >> i) & 0x01;
+    }
+    else
+    {
+        uint8_t r2_bit = color & 1;
+        uint8_t g2_bit = (color >> 1) & 1;
+        uint8_t b2_bit = (color >> 2) & 1;
         r2_bit ? LPC_GPIO2->FIOSET = (1 << R2) : LPC_GPIO2->FIOCLR = (1 << R2);
         g2_bit ? LPC_GPIO2->FIOSET = (1 << G2) : LPC_GPIO2->FIOCLR = (1 << G2);
         b2_bit ? LPC_GPIO2->FIOSET = (1 << B2) : LPC_GPIO2->FIOCLR = (1 << B2);
-
-        clockTick();
     }
 
 }
 
-void FRITOS::fill_rectangle(uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint32_t color)
+void FRITOS::drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, LabGPIO sw2, LabGPIO sw3, LabGPIO out1, LabGPIO out2, LabGPIO out3)
 {
-    for(uint8_t x = x1; x <= x2; ++x)
-    {
-        for(uint8_t y = y1; y <= y2; ++y)
-        {
-            m_matrixBuffer[y][x] = color;
-        }
-    }
-}
-
-void FRITOS::set_pixel(uint8_t x, uint8_t y, uint32_t color)
-{
-    m_matrixBuffer[y][x] = color;
-}
-
-void FRITOS::drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, LabGPIO sw2, LabGPIO sw3)
-{
-//    fill_rectangle(0, 0, 12, 12, 1);
-//    fill_rectangle(20, 4, 30, 15, 2);
-//    fill_rectangle(15, 0, 19, 7, 7);
-
-//    set_pixel(0, 0, 0xFF0000);
-//    set_pixel(0, 1, 0x00FF00);
-//    set_pixel(0, 2, 0x0000FF);
-
-//    vTaskDelay(100);
-
-
-    uint64_t count=0;
-    uint8_t top[32]={0};
-    uint8_t now[32]={0};
+    int count=0;
+    int top[32]={0};
+    int now[32]={0};
     uint8_t mode=0;
     while(1)
     {
+        //get acceleration for determine orientation
+        if(Acceleration_Sensor::getInstance().getX() > 500)
+        {
+            convert_i=1;
+            convert_j=1;
+        }
+        else
+        {
+            convert_i=0;
+            convert_j=0;
+        }
+
         static uint64_t current_time_us = 0;
         static bool isInitialized = false;
 
-        if(!isInitialized)
+        if(!isInitialized)  //initialize audio analyzer
         {
             current_time_us = sys_get_uptime_us() + 36;
             while(sys_get_uptime_us() < current_time_us);
@@ -550,12 +609,10 @@ void FRITOS::drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, L
             audio.clear_pin(RESET_PIN);
             audio.set_pin(STROBE_PIN);
             isInitialized = true;
-//            printf("   63Hz    160Hz   400Hz   1KHz    2.5KHz  6.25KHz 16KHz\n");
+            if(m_debug)    printf("   63Hz    160Hz   400Hz   1KHz    2.5KHz  6.25KHz 16KHz\n");
         }
-        /////////////////////////////////
-//        vTaskDelay(20);
 
-        while(sw3.getLevel())
+        while(sw3.getLevel())   //switch 3 on LPC1758, change display color mode (total of 3 modes)
         {
             vTaskDelay(50);
             if(!sw3.getLevel())
@@ -565,203 +622,253 @@ void FRITOS::drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, L
                 DisplayColorMode(mode);
             }
         }
+        while(sw2.getLevel())   //switch 2 on LPC1758, pause and resume music
+        {
+            vTaskDelay(50);
+            if(!sw2.getLevel())
+            {
+                out2.toggleLevel();
+                while(out2.getLevel())
+                {
+                    pausescreen(sw2, out2);
+                }
+            }
+        }
+        while(sw1.getLevel())   //switch 1 on LPC1758, skip song
+        {
+            vTaskDelay(50);
+            if(!sw1.getLevel())
+            {
+                out1.setLow();
+                vTaskDelay(20);
+                out1.setHigh();
+            }
+        }
+
+        while(sw0.getLevel())   //switch 0 on LPC1758, display splash screen
+        {
+            splashscreen();
+        }
 
         uint16_t values[7] = {0};
         for(int j = 0; j<6; j++)
         {
             for(int i = 0; i<7; i++)
             {
+                //-----audio analyzer value read----
                 audio.clear_pin(STROBE_PIN);
                 current_time_us = sys_get_uptime_us() + 36;
                 while(sys_get_uptime_us() < current_time_us);
                 values[i] = audio.read_pin_value();
                 if(j==0)                                    audio.values[i] = values[i];
                 else if(j>0 && values[i] < audio.values[i]) audio.values[i] = values[i];
-//                printf("%6d",audio.values[i]);
-//                if(i<6)
-//                {
-//                    printf("  ");
-//                }
-//                else
-//                {
-//                    printf("\r\n");
-//                }
+                if(m_debug)
+                {
+                    printf("%6d",audio.values[i]);
+                    if(i<6) printf("  ");
+                    else    printf("\r\n");
+                }
                 audio.set_pin(STROBE_PIN);
                 current_time_us = sys_get_uptime_us() + 36;
                 while(sys_get_uptime_us() < current_time_us);
             }
         }
         uint16_t freq=0;
+        uint8_t rowset;
+        uint8_t colset;
         for(uint8_t row = 0; row < 8; ++row)
         {
             disableOE();
             set_color_top(0);
             set_color_bottom(0);
             set_row(row);
+            if(convert_i)   rowset = row+8-convert_i*(2*row+1); //set row base on LPC1758's orientation
+            else            rowset = row+convert_i*(15-2*row);
+
             for(uint8_t col = 0; col < 32; ++col)
             {
-                if(col<5)       freq=audio.values[6];
-                else if(col<10) freq=audio.values[5];
-                else if(col<14) freq=audio.values[4];
-                else if(col<18) freq=audio.values[3];
-                else if(col<22) freq=audio.values[2];
-                else if(col<27) freq=audio.values[1];
-                else            freq=audio.values[0];
+                colset = col+convert_j*(31-2*col);
 
+                if(colset<5)       freq=audio.values[6];    //63Hz
+                else if(colset<10) freq=audio.values[5];    //160Hz
+                else if(colset<14) freq=audio.values[4];    //400Hz
+                else if(colset<18) freq=audio.values[3];    //1Khz
+                else if(colset<22) freq=audio.values[2];    //2.5Khz
+                else if(colset<27) freq=audio.values[1];    //6.25Khz
+                else               freq=audio.values[0];    //16Khz
+
+                //display RGB LED Matrix base on the the 7 bands value from audio analyzer
                 if(freq<496)
                 {
-                    now[col] = 0;
-                    if(now[col] > top[col]) top[col] = now[col];
+                    now[colset] = 0;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
                     set_color_top(0);
                     set_color_bottom(0);
                 }
                 else if(freq>=496 && freq <736)
                 {
-                    now[col] = 1;
-                    if(now[col] > top[col]) top[col] = now[col];
                     set_color_top(0);
-                    if(row>0)   set_color_bottom(0);
-                    else if(row==0 && col<5 && freq<650)  set_color_bottom(0);
-                    else if(row==0 && col<10 && freq<600)  set_color_bottom(0);
-                    else if(row==0 && col<14 && freq<550)  set_color_bottom(0);
-                    else        set_color_bottom(m_matrixBuffer[row+8][col]);
+                    if(rowset>0)                                set_color_bottom(0);
+                    else if(rowset==0 && colset<5 && freq<650)  set_color_bottom(0);
+                    else if(rowset==0 && colset<10 && freq<600) set_color_bottom(0);
+                    else if(rowset==0 && colset<14 && freq<550) set_color_bottom(0);
+                    else
+                    {
+                        now[colset] = 1;
+                        if(now[colset] > top[colset]) top[colset] = now[colset];
+                        set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    }
 
                 }
                 else if(freq>=736 && freq <976)
                 {
-                    now[col] = 2;
-                    if(now[col] > top[col]) top[col] = now[col];
+                    now[colset] = 2;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
                     set_color_top(0);
-                    if(row>1)   set_color_bottom(0);
-                    else        set_color_bottom(m_matrixBuffer[row+8][col]);
+                    if(rowset>1)   set_color_bottom(0);
+                    else        set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
                 }
                 else if(freq>=976 && freq <1216)
                 {
-                    now[col] = 3;
-                    if(now[col] > top[col]) top[col] = now[col];
+                    now[colset] = 3;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
                     set_color_top(0);
-                    if(row>2)   set_color_bottom(0);
-                    else        set_color_bottom(m_matrixBuffer[row+8][col]);
+                    if(rowset>2)   set_color_bottom(0);
+                    else        set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
                 }
                 else if(freq>=1216 && freq <1456)
                 {
-                    now[col] = 4;
-                    if(now[col] > top[col]) top[col] = now[col];
+                    now[colset] = 4;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
                     set_color_top(0);
-                    if(row>3)   set_color_bottom(0);
-                    else        set_color_bottom(m_matrixBuffer[row+8][col]);
+                    if(rowset>3)   set_color_bottom(0);
+                    else        set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
                 }
                 else if(freq>=1456 && freq <1696)
                 {
-                    now[col] = 5;
-                    if(now[col] > top[col]) top[col] = now[col];
+                    now[colset] = 5;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
                     set_color_top(0);
-                    if(row>4)   set_color_bottom(0);
-                    else        set_color_bottom(m_matrixBuffer[row+8][col]);
+                    if(rowset>4)   set_color_bottom(0);
+                    else        set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
 
                 }
                 else if(freq>=1696 && freq <1936)
                 {
-                    now[col] = 6;
-                    if(now[col] > top[col]) top[col] = now[col];
+                    now[colset] = 6;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
                     set_color_top(0);
-                    if(row>5)   set_color_bottom(0);
-                    else        set_color_bottom(m_matrixBuffer[row+8][col]);
+                    if(rowset>5)   set_color_bottom(0);
+                    else        set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
                 }
                 else if(freq>=1936 && freq <2176)
                 {
-                    now[col] = 7;
-                    if(now[col] > top[col]) top[col] = now[col];
+                    now[colset] = 7;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
                     set_color_top(0);
-                    if(row>6)   set_color_bottom(0);
-                    else        set_color_bottom(m_matrixBuffer[row+8][col]);
+                    if(rowset>6)   set_color_bottom(0);
+                    else        set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
                 }
                 else if(freq>=2176 && freq <2416)
                 {
-                    now[col] = 8;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
+                    now[colset] = 8;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
                 }
                 else if(freq>=2416 && freq <2656)
                 {
-                    now[col] = 9;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
-                    if(row>0)   set_color_top(0);
-                    else        set_color_top(m_matrixBuffer[row][col]);
+                    now[colset] = 9;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    if(rowset>0)   set_color_top(0);
+                    else        set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
                 }
                 else if(freq>=2656 && freq <2896)
                 {
-                    now[col] = 10;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
-                    if(row>1)   set_color_top(0);
-                    else        set_color_top(m_matrixBuffer[row][col]);
+                    now[colset] = 10;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    if(rowset>1)   set_color_top(0);
+                    else        set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
                 }
                 else if(freq>=2896 && freq <3136)
                 {
-                    now[col] = 11;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
-                    if(row>2)   set_color_top(0);
-                    else        set_color_top(m_matrixBuffer[row][col]);
+                    now[colset] = 11;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    if(rowset>2)   set_color_top(0);
+                    else        set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
                 }
                 else if(freq>=3136 && freq <3376)
                 {
-                    now[col] = 12;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
-                    if(row>3)   set_color_top(0);
-                    else        set_color_top(m_matrixBuffer[row][col]);
+                    now[colset] = 12;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    if(rowset>3)   set_color_top(0);
+                    else        set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
                 }
                 else if(freq>=3376 && freq <3616)
                 {
-                    now[col] = 13;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
-                    if(row>4)   set_color_top(0);
-                    else        set_color_top(m_matrixBuffer[row][col]);
+                    now[colset] = 13;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    if(rowset>4)   set_color_top(0);
+                    else        set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
                 }
                 else if(freq>=3616 && freq <3856)
                 {
-                    now[col] = 14;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
-                    if(row>5)   set_color_top(0);
-                    else        set_color_top(m_matrixBuffer[row][col]);
+                    now[colset] = 14;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    if(rowset>5)   set_color_top(0);
+                    else        set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
                 }
                 else if(freq>=3856 && freq <4095)
                 {
-                    now[col] = 15;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
-                    if(row>6)   set_color_top(0);
-                    else        set_color_top(m_matrixBuffer[row][col]);
+                    now[colset] = 15;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    if(rowset>6)   set_color_top(0);
+                    else        set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
                 }
                 else if(freq==4095)
                 {
-                    now[col] = 15;
-                    if(now[col] > top[col]) top[col] = now[col];
-                    set_color_top(m_matrixBuffer[row][col]);
-                    set_color_bottom(m_matrixBuffer[row+8][col]);
+                    now[colset] = 15;
+                    if(now[colset] > top[colset]) top[colset] = now[colset];
+                    set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
+                    set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
                 }
 
-                if(row == top[col] && top[col] >1)
+                //-----dropping bars functions-----
+                if(rowset == top[colset] && top[colset] >= 0)
                 {
                     set_color_bottom(dropping);
-                    if(count%10 == 0) top[col]--;
+                    if(count%5 == 0) top[colset]--;
+                    if(convert_i)   count++;
                 }
-                else if(row == top[col]-8 && top[col] >0)
+                else if(rowset == top[colset]-8 && top[colset] > 0)
                 {
                     set_color_top(dropping);
-                    if(count%10 == 0) top[col]--;
+                    if(count%5 == 0) top[colset]--;
+                    if(convert_i)   count++;
+                }
+                if(convert_i)
+                {
+                    if(rowset < top[colset]-8)
+                    {
+                        set_color_top(m_matrixBuffer[row+8-convert_i*(2*row+1)][colset]);
+                    }
+                    if (rowset < top[colset])
+                    {
+                        set_color_bottom(m_matrixBuffer[row+convert_i*(15-2*row)][colset]);
+                    }
                 }
                 clockTick();
             }
             latchReset();
             enableOE();
-            vTaskDelay(1);
+            vTaskDelay(2);
         }
-        count++;
+        if(!convert_i)   count++;
     }
 }

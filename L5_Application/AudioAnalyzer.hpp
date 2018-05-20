@@ -1,22 +1,24 @@
-#ifndef L5_APPLICATION_EQUALIZER_HPP_
-#define L5_APPLICATION_EQUALIZER_HPP_
+#ifndef AUDIOANALYZER_HPP_
+#define AUDIOANALYZER_HPP_
 
 #include <stdio.h>
-#include "scheduler_task.hpp"
+#include "adc0.h"
+#include "FreeRTOS.h"
+#include "lpc_sys.h"
 
-#define EQ_OUTPUT_ADC_P026    3   ///< ADC0.3
+
 #define STROBE_PIN 30
 #define RESET_PIN 29
 
-
-class AudioAnalyzer{
+class AudioAnalyzer
+{
     public:
-    uint16_t values[7] = {0};
-    AudioAnalyzer();
+        AudioAnalyzer();
         bool init();
-        uint16_t read_pin_value();
         void set_pin(int pin_number);
         void clear_pin(int pin_number);
+        uint16_t read_pin_value();
+        uint16_t values[7] = {0};
 };
 
-#endif
+#endif /* AUDIOANALYZER_HPP_ */

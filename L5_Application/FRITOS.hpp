@@ -14,6 +14,7 @@
 #include <inttypes.h>
 #include <AudioAnalyzer.hpp>
 #include <LabGPIO.hpp>
+#include "acceleration_sensor.hpp"
 
 extern SemaphoreHandle_t xMutex;
 
@@ -77,6 +78,9 @@ public:
     uint8_t m_matrixWidth;
     uint8_t m_matrixHeight;
 
+    bool convert_i = 0;
+    bool convert_j = 0;
+
     FRITOS(bool);
     ~FRITOS();
 
@@ -88,7 +92,7 @@ public:
     bool mp3Ready(void);
     void setVolume(uint8_t, uint8_t);
     void setBass(uint8_t, uint8_t);
-    void playMP3(const char*);
+    void playMP3(const char*, LabGPIO in1, LabGPIO in2);
 
     void enableXCS(void);
     void disableXCS(void);
@@ -103,26 +107,23 @@ public:
     void disableXDCS(void);
 
     FIL mp3File;
-    void startPlaylist(const char*);
+    void startPlaylist(const char*, LabGPIO in1, LabGPIO in2);
 
     void initRGB(void);
     void DisplayColorMode(uint8_t);
     void splashscreen(void);
+    void pausescreen(LabGPIO sw2, LabGPIO out2);
     void enableOE(void);
     void disableOE(void);
     void clockTick(void);
     void latchReset(void);
-//    unsigned char bits_from_int(uint8_t);
     void set_row(uint8_t);
     void set_color_top(uint32_t);
     void set_color_bottom(uint32_t);
-    void fill_rectangle(uint8_t, uint8_t, uint8_t, uint8_t, uint32_t);
-    void set_pixel(uint8_t, uint8_t, uint32_t);
-    void drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, LabGPIO sw2, LabGPIO sw3);
+    void drawPixelwithAudio(AudioAnalyzer audio, LabGPIO sw0, LabGPIO sw1, LabGPIO sw2, LabGPIO sw3, LabGPIO out1, LabGPIO out2, LabGPIO out3);
 
-    void set_color_all(uint32_t);
 
-    volatile uint32_t m_matrixBuffer[16][32];
+    volatile uint8_t  m_matrixBuffer[16][32];
 
     bool m_debug;
 };
