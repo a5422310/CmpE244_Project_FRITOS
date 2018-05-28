@@ -1,10 +1,5 @@
 -----------------------------------------------------------------------------
-To get started, have a look at L5_Application/main.cpp and the example tasks.
-
-You can change a #define 0 to #define 1 for one example at a time and look
-through the code of each example.
-
-The general idea is to interact with the project through terminal commands.
+This is a CmpE244 Project. You can find the project report in the link below to find more details. 
 -----------------------------------------------------------------------------
-See "ChangeLog" for the changes made to the sample project source code.
+http://socialledge.com/sjsu/index.php/S18:_Audio_Spectrum_Analyzer_with_Graphics_Display
 -----------------------------------------------------------------------------
